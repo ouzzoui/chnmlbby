@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>chnmlbby</title>
+<script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+<style>
+  @font-face {
+    font-family: "My First Art Type";
+    src: url("assets/fonts/MyFirstArtType-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "Oswald";
+    src: url("assets/fonts/Oswald-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+  }
+
+  :root {
+    --teal-bg: #006c5e;   /* loading screen ground */
+    --accent: #4ba79a;    /* playhead + scrubber */
+    --grey: #4d4d4d;      /* static chrome: borders, labels, icons */
+    --title: #828282;     /* track titles */
+    --sans: "Oswald", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --script: "My First Art Type", "Brush Script MT", cursive;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #0a0c0b;
+  }
+
+  /* ---------- loading screen ---------- */
+  #loader {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background-color: var(--teal-bg); /* shows until the tile loads */
+    background-image: url("assets/scaffold_bg_web.webp");
+    background-repeat: repeat;
+    background-size: 1600px auto;
+    cursor: crosshair;
+    touch-action: none;
+    transition: transform 0.9s cubic-bezier(0.76, 0, 0.24, 1);
+  }
+  @media (max-width: 700px) {
+    #loader { background-size: 800px auto; }
+  }
+  #loader canvas { display: block; }
+  #loader-ui {
+    position: fixed;
+    inset: 0;
+    z-index: 1001;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 8vh;
+    pointer-events: none;
+    font-family: var(--sans);
+    font-weight: 400;
+    color: var(--title);
+    transition: transform 0.9s cubic-bezier(0.76, 0, 0.24, 1);
+  }
+  #loader-pct {
+    font-size: 12px;
+    opacity: 0.35;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- home ---------- */
+  #site {
+    position: relative;
+    min-height: 100%;
+    color: var(--title);
+    font-family: var(--sans);
+    font-weight: 400;
+  }
+  #stage {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: #0a0c0b url("assets/lightbulb-bg.jpg") center / cover no-repeat;
+  }
+
+  /* left two thirds: the bracelet, centred */
+  .dial-area {
+    --dial: min(82vw, 124vh);
+    position: relative;
+    width: 66.667%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #dial {
+    position: relative;
+    width: var(--dial);
+    height: var(--dial);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+  #dial.is-dragging { cursor: grabbing; }
+  .ring-logo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 40%;
+    transform: translate(-50%, -50%);
+    z-index: 1; /* always above the disc */
+    pointer-events: none; /* never intercepts a drag on the disc */
+  }
+  #bracelet {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    /* furthest pendant reaches 0.49x image width from the ring centre */
+    width: 92%;
+    transform-origin: 49.37% 51.64%; /* the ring's centre in the artwork */
+    pointer-events: none;
+  }
+  /* playhead at 3 o'clock, with a leader running to the tracklist */
+  #playhead, #leader {
+    position: absolute;
+    top: 50%;
+    /* Fixed in the column, not tied to --dial, so the disc grows behind it. */
+    left: 81%;
+    pointer-events: none;
+  }
+  #playhead {
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border-radius: 50%;
+    background: var(--accent);
+    transition: box-shadow 0.35s ease;
+  }
+  #playhead.is-playing { box-shadow: 0 0 14px 4px rgba(75, 167, 154, 0.5); }
+  #leader {
+    right: 0; /* meets the panels at the two-thirds line */
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.45;
+  }
+
+  /* right third */
+  .panels {
+    position: relative;
+    width: 33.333%;
+    height: 100%;
+    padding: 3.4vh 2.6vw 3.4vh 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* boxes centred on the viewport */
+    gap: 2.2vh;
+    overflow-y: auto;
+  }
+
+  .panel {
+    border: 3px solid var(--grey);
+    border-radius: 3px;
+    padding: 10px 16px 16px;
+  }
+  .panel > h2 {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+
+  /* links */
+  .links { display: flex; align-items: center; justify-content: flex-end; gap: 18px; }
+  .links .photozine {
+    font-size: 14px;
+    color: var(--grey);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .links .photozine:hover { color: var(--title); }
+  .links img {
+    height: 27.2px;
+    width: auto;
+    /* Artwork is pure black, so invert(0.302) resolves to exactly #4d4d4d
+       and invert(0.51) to #828282 — no opacity, so the hex stays true. */
+    filter: invert(0.302);
+    transition: filter 0.2s ease;
+  }
+  .links a:hover img { filter: invert(0.51); }
+
+  /* tracklist */
+  #tracklist { list-style: none; margin: 0; padding: 0; text-align: center; }
+  #tracklist li {
+    padding: 3px 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    cursor: pointer;
+    color: var(--title);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  #tracklist li:hover { background: rgba(130, 130, 130, 0.18); }
+  #tracklist li.is-current {
+    color: #141414;
+    background: var(--title);
+    mix-blend-mode: plus-lighter;
+  }
+
+  /* now playing */
+  #npTitle {
+    font-family: var(--script);
+    font-size: 30px;
+    line-height: 1.15;
+    text-align: center;
+    min-height: 2.2em;
+    margin: 10px 0 18px;
+    color: var(--title);
+  }
+  .transport { display: flex; align-items: center; gap: 10px; }
+  .transport button {
+    background: none;
+    border: 0;
+    padding: 4px;
+    color: var(--grey);
+    cursor: pointer;
+    display: flex;
+  }
+  .transport button:hover { color: var(--title); }
+  .transport svg { display: block; fill: currentColor; }
+  .time {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--title);
+    min-width: 34px;
+  }
+  .time.dur { text-align: right; }
+  #scrub {
+    position: relative;
+    flex: 1;
+    height: 16px;
+    cursor: pointer;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+  }
+  #scrub .rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--grey);
+  }
+  #scrubHandle {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: translateX(-50%);
+    left: 0;
+  }
+
+  /* Below 900px the two thirds stack instead of sitting side by side. */
+  @media (max-width: 900px) {
+    #stage { flex-direction: column; height: auto; }
+    .dial-area {
+      --dial: min(100vw, 76vh);
+      width: 100%;
+      height: 62vh;
+    }
+    #leader, #playhead { display: none; }
+    .panels {
+      width: 100%;
+      height: auto;
+      padding: 20px;
+      overflow: visible;
+      background: #0a0c0b;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="site">
+  <div id="stage">
+    <div class="dial-area">
+      <div id="dial">
+        <img id="bracelet" src="assets/bracelet.png" alt="Charm bracelet track selector" />
+        <img class="ring-logo" src="assets/logo.svg" alt="chnmlbby" />
+      </div>
+      <div id="leader"></div>
+      <div id="playhead"></div>
+    </div>
+
+    <aside class="panels">
+      <section class="panel">
+        <h2>Links</h2>
+        <div class="links">
+          <a class="photozine" href="#">photozine</a>
+          <a href="#" aria-label="Bandcamp"><img src="assets/icon-bandcamp.svg" alt="Bandcamp" /></a>
+          <a href="#" aria-label="SoundCloud"><img src="assets/icon-soundcloud.svg" alt="SoundCloud" /></a>
+          <a href="#" aria-label="Apple Music"><img src="assets/icon-applemusic.svg" alt="Apple Music" /></a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Tracklist</h2>
+        <ol id="tracklist"></ol>
+      </section>
+
+      <section class="panel">
+        <h2>Now Playing</h2>
+        <div id="npTitle">drag disc or hit spacebar to listen</div>
+        <div class="transport">
+          <button id="prevBtn" aria-label="Previous track">
+            <svg width="15" height="12" viewBox="0 0 15 12"><path d="M0 0h2.2v12H0zM15 0v12L4.8 6z"/></svg>
+          </button>
+          <button id="playBtn" aria-label="Play" aria-pressed="false">
+            <svg id="playIcon" width="13" height="14" viewBox="0 0 13 14"><path d="M0 0l13 7-13 7z"/></svg>
+            <svg id="pauseIcon" width="12" height="14" viewBox="0 0 12 14" hidden><path d="M0 0h4v14H0zM8 0h4v14H8z"/></svg>
+          </button>
+          <button id="nextBtn" aria-label="Next track">
+            <svg width="15" height="12" viewBox="0 0 15 12"><path d="M0 0l10.2 6L0 12zM12.8 0H15v12h-2.2z"/></svg>
+          </button>
+          <span class="time cur" id="curTime">0:00</span>
+          <div id="scrub"><div class="rail"></div><div id="scrubHandle"></div></div>
+          <span class="time dur" id="durTime">0:00</span>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<div id="loader"></div>
+<div id="loader-ui">
+  <div id="loader-pct">0%</div>
+</div>
+
+<script src="core.js"></script>
+<script src="loader.js"></script>
+<script src="player.js"></script>
+</body>
+</html>
