@@ -4,7 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>chnmlbby</title>
-<script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
 <style>
   @font-face {
     font-family: "My First Art Type";
@@ -18,12 +17,17 @@
     font-weight: 400;
     font-display: swap;
   }
+  @font-face {
+    font-family: "Oswald";
+    src: url("assets/fonts/Oswald-Light.woff2") format("woff2"); /* Latin subset */
+    font-weight: 300;
+    font-display: swap;
+  }
 
   :root {
-    --teal-bg: #006c5e;   /* loading screen ground */
     --accent: #4ba79a;    /* playhead + scrubber */
     --grey: #4d4d4d;      /* static chrome: borders, labels, icons */
-    --title: #828282;     /* track titles */
+    --title: #4d4d4d;     /* track titles */
     --sans: "Oswald", "Helvetica Neue", Helvetica, Arial, sans-serif;
     --script: "My First Art Type", "Brush Script MT", cursive;
   }
@@ -39,18 +43,11 @@
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background-color: var(--teal-bg); /* shows until the tile loads */
-    background-image: url("assets/scaffold_bg_web.webp");
-    background-repeat: repeat;
-    background-size: 1600px auto;
-    cursor: crosshair;
+    /* no ground: the curtain hangs straight over the site */
     touch-action: none;
-    transition: transform 0.9s cubic-bezier(0.76, 0, 0.24, 1);
+    transition: opacity 0.4s ease; /* only for strands still swinging at the end */
   }
-  @media (max-width: 700px) {
-    #loader { background-size: 800px auto; }
-  }
-  #loader canvas { display: block; }
+  #loader canvas { display: block; width: 100%; height: 100%; }
   #loader-ui {
     position: fixed;
     inset: 0;
@@ -63,7 +60,7 @@
     font-family: var(--sans);
     font-weight: 400;
     color: var(--title);
-    transition: transform 0.9s cubic-bezier(0.76, 0, 0.24, 1);
+    transition: opacity 0.9s ease;
   }
   #loader-pct {
     font-size: 12px;
@@ -162,47 +159,44 @@
 
   .panel {
     border: 3px solid var(--grey);
-    border-radius: 3px;
     padding: 10px 16px 16px;
   }
   .panel > h2 {
-    margin: 0 0 10px;
-    font-size: 11px;
+    /* pulled up and left, toward the box's corner; contents stay put */
+    margin: -5px 0 10px -10px;
+    font-size: 14px;
+    line-height: 1;
     font-weight: 400;
     text-transform: uppercase;
     color: var(--grey);
   }
 
   /* links */
-  .links { display: flex; align-items: center; justify-content: flex-end; gap: 18px; }
-  .links .photozine {
-    font-size: 14px;
-    color: var(--grey);
-    text-decoration: none;
-    transition: color 0.2s ease;
-  }
-  .links .photozine:hover { color: var(--title); }
+  .links { display: flex; align-items: center; justify-content: center; gap: 18px; }
+  .links a { display: flex; align-items: center; }
   .links img {
+    display: block;
     height: 27.2px;
     width: auto;
     /* Artwork is pure black, so invert(0.302) resolves to exactly #4d4d4d
-       and invert(0.51) to #828282 — no opacity, so the hex stays true. */
+       (light grey retired — everything is #4d4d4d) — no opacity, so the hex stays true. */
     filter: invert(0.302);
     transition: filter 0.2s ease;
   }
-  .links a:hover img { filter: invert(0.51); }
+  .links a:hover img { filter: invert(0.302); }
 
   /* tracklist */
   #tracklist { list-style: none; margin: 0; padding: 0; text-align: center; }
   #tracklist li {
     padding: 3px 8px;
     font-size: 14px;
+    font-weight: 300;
     line-height: 1.5;
     cursor: pointer;
     color: var(--title);
     transition: background-color 0.3s ease, color 0.3s ease;
   }
-  #tracklist li:hover { background: rgba(130, 130, 130, 0.18); }
+  #tracklist li:hover { background: rgba(77, 77, 77, 0.18); }
   #tracklist li.is-current {
     color: #141414;
     background: var(--title);
@@ -219,6 +213,23 @@
     margin: 10px 0 18px;
     color: var(--title);
   }
+  /* A track title sits vertically centred in the space it reserves, however
+     many lines it runs to. */
+  #npTitle:not(.is-hint) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Before a track is picked the hint stays blank, and only appears while the
+     pointer is over the disc. The box keeps its height either way. */
+  #npTitle.is-hint {
+    font-family: var(--sans);
+    font-weight: 300;
+    white-space: pre; /* one line each side of the break before "to listen" */
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  #stage:has(#dial:hover) #npTitle.is-hint { opacity: 1; }
   .transport { display: flex; align-items: center; gap: 10px; }
   .transport button {
     background: none;
@@ -299,7 +310,6 @@
       <section class="panel">
         <h2>Links</h2>
         <div class="links">
-          <a class="photozine" href="#">photozine</a>
           <a href="#" aria-label="Bandcamp"><img src="assets/icon-bandcamp.svg" alt="Bandcamp" /></a>
           <a href="#" aria-label="SoundCloud"><img src="assets/icon-soundcloud.svg" alt="SoundCloud" /></a>
           <a href="#" aria-label="Apple Music"><img src="assets/icon-applemusic.svg" alt="Apple Music" /></a>
@@ -313,7 +323,8 @@
 
       <section class="panel">
         <h2>Now Playing</h2>
-        <div id="npTitle">drag disc or hit spacebar to listen</div>
+        <div id="npTitle" class="is-hint">drag disc or hit spacebar
+to listen</div>
         <div class="transport">
           <button id="prevBtn" aria-label="Previous track">
             <svg width="15" height="12" viewBox="0 0 15 12"><path d="M0 0h2.2v12H0zM15 0v12L4.8 6z"/></svg>
@@ -339,8 +350,8 @@
   <div id="loader-pct">0%</div>
 </div>
 
-<script src="core.js"></script>
-<script src="loader.js"></script>
-<script src="player.js"></script>
+<script src="core.js?v=2"></script>
+<script src="loader.js?v=5"></script>
+<script src="player.js?v=3"></script>
 </body>
 </html>

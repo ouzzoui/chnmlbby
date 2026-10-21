@@ -36,10 +36,10 @@ const TRACK_DATA = [
   ["protean", 243],
   ["flamenco ii", 147],
   ["mix 2 guitar break (i could give you everything)", 208],
-  ["black cop", 186],
-  ["windup", 169],
-  ["what", 98],
-  ["i feel like", 261],
+  ["blink and you'll miss it v2", 186],
+  ["black cop", 169],
+  ["wind up 2 v2", 98],
+  ["unlock it", 261],
 ];
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI",
@@ -200,7 +200,8 @@ function renderHighlight() {
 
 function render() {
   const t = selected === null ? null : TRACKS[selected];
-  npTitle.textContent = t ? t.title : "drag disc or hit spacebar to listen";
+  npTitle.textContent = t ? t.title : "drag disc or hit spacebar\nto listen";
+  npTitle.classList.toggle("is-hint", !t); // v2 styles the idle hint differently
   curTime.textContent = fmt(t ? elapsed : 0);
   durTime.textContent = fmt(t ? trackDuration(t) : 0);
   const ratio = t ? elapsed / trackDuration(t) : 0;
