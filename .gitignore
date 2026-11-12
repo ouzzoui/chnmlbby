@@ -1,1 +1,4 @@
 .DS_Store
+
+# placeholder audio — kept local, not committed
+assets/audio/*.mp3
